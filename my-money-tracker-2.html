@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#0b1220">
+<title>My Money — Personal Finance Tracker</title>
+<style>
+*{box-sizing:border-box}body{margin:0;font-family:Inter,system-ui,-apple-system,Segoe UI,sans-serif;background:#f4f7fb;color:#101828}
+button,input,select{font:inherit}button{cursor:pointer;border:0}
+.app{max-width:900px;margin:auto;padding:18px}
+header{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}
+.brand{font-size:22px;font-weight:800}.sub{font-size:12px;color:#667085;margin-top:3px}
+.icon-btn{width:42px;height:42px;border-radius:14px;background:#fff;box-shadow:0 5px 18px #0000000d}
+.balance{background:linear-gradient(135deg,#0b1220,#17233b);color:#fff;border-radius:24px;padding:24px;margin-bottom:14px;box-shadow:0 14px 30px #0b12202b}
+.balance small{color:#b9c4d8}.balance h1{font-size:38px;margin:6px 0 4px;letter-spacing:-1px}
+.updated{font-size:12px;color:#aebbd0}.cards{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-bottom:14px}
+.card{background:#fff;border-radius:20px;padding:17px;box-shadow:0 7px 22px #1018280b;position:relative}
+.card .label{font-size:13px;color:#667085}.card .value{font-size:23px;font-weight:800;margin-top:8px}
+.card .hint{font-size:11px;color:#98a2b3;margin-top:4px}
+.gold{border:1px solid #f2df9a}.gold .coin{background:#fff5c7}.coin{width:38px;height:38px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:20px;margin-bottom:10px}
+.actions{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px}
+.action{padding:15px;border-radius:17px;color:#fff;font-weight:800;font-size:15px}
+.add{background:#087443}.use{background:#b42318}
+.section{background:#fff;border-radius:20px;padding:18px;margin-bottom:14px;box-shadow:0 7px 22px #1018280b}
+.section-title{font-weight:800;margin-bottom:12px}
+.history-item{display:flex;justify-content:space-between;gap:10px;padding:12px 0;border-bottom:1px solid #eef2f6}
+.history-item:last-child{border-bottom:0}.history-title{font-weight:700;font-size:14px}.history-meta{font-size:11px;color:#98a2b3;margin-top:3px}.pos{color:#087443;font-weight:800}.neg{color:#b42318;font-weight:800}
+.empty{text-align:center;color:#98a2b3;padding:18px 0;font-size:13px}
+.modal{position:fixed;inset:0;background:#0008;display:none;align-items:flex-end;justify-content:center;z-index:20}
+.modal.show{display:flex}.sheet{background:#fff;width:min(100%,560px);border-radius:24px 24px 0 0;padding:20px;max-height:90vh;overflow:auto}
+.sheet h2{margin:0 0 14px}.close{float:right;background:#f2f4f7;border-radius:10px;width:34px;height:34px}
+.options{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}.option{background:#f5f7fa;border-radius:15px;padding:17px 8px;text-align:center;font-weight:700}.option span{display:block;font-size:25px;margin-bottom:7px}
+.form{display:grid;gap:12px}.form label{font-size:12px;color:#667085;font-weight:700}.form input,.form select{width:100%;padding:13px;border:1px solid #d0d5dd;border-radius:13px;outline:none;background:#fff}.form input:focus,.form select:focus{border-color:#344054;box-shadow:0 0 0 3px #34405418}.primary{width:100%;padding:14px;border-radius:14px;background:#0b1220;color:#fff;font-weight:800}
+.secondary{width:100%;padding:13px;border-radius:14px;background:#eef2f6;color:#101828;font-weight:700}
+.note{font-size:11px;color:#667085;line-height:1.5;background:#f8fafc;padding:10px;border-radius:12px}
+.row{display:flex;justify-content:space-between;align-items:center;gap:10px}.danger{color:#b42318;background:#fff1f0;padding:10px 12px;border-radius:11px;font-weight:700}
+@media(min-width:700px){.cards{grid-template-columns:repeat(4,1fr)}.modal{align-items:center}.sheet{border-radius:24px}}
+</style>
+</head>
+<body>
+<div class="app">
+<header>
+  <div><div class="brand">My Money 💰</div><div class="sub">Personal Finance & Gold Tracker</div></div>
+  <button class="icon-btn" onclick="openSettings()">⚙️</button>
+</header>
+
+<section class="balance">
+  <small>TOTAL NET WORTH</small>
+  <h1 id="totalBalance">₹0</h1>
+  <div class="updated" id="goldUpdated">Gold rate: not loaded</div>
+</section>
+
+<section class="cards">
+  <div class="card"><div class="coin">💵</div><div class="label">Salary</div><div class="value" id="salaryValue">₹0</div><div class="hint">Total salary added</div></div>
+  <div class="card gold"><div class="coin">🪙</div><div class="label">Gold</div><div class="value" id="goldValue">₹0</div><div class="hint" id="goldHint">0.00 g</div></div>
+  <div class="card"><div class="coin">💰</div><div class="label">Other Income</div><div class="value" id="otherValue">₹0</div><div class="hint">Other money added</div></div>
+  <div class="card"><div class="coin">➕</div><div class="label">Added Amount</div><div class="value" id="amountValue">₹0</div><div class="hint">Direct amount added</div></div>
+  <div class="card"><div class="coin">💸</div><div class="label">Used / Expenses</div><div class="value" id="usedValue">₹0</div><div class="hint">Total money spent</div></div>
+  <div class="card"><div class="coin">🤝</div><div class="label">Money Lent</div><div class="value" id="loanValue">₹0</div><div class="hint">Expected return</div></div>
+</section>
+
+<section class="actions">
+  <button class="action add" onclick="openAdd()">＋ Add Money</button>
+  <button class="action use" onclick="openUse()">− Use Money</button>
+</section>
+
+<section class="section">
+  <div class="row"><div class="section-title">Recent Transactions</div><button class="secondary" style="width:auto;padding:8px 10px" onclick="openAllHistory()">View All</button></div>
+  <div id="history"></div>
+</section>
+
+<section class="section">
+  <div class="section-title">Money Lent / Receivables 🤝</div>
+  <div id="loanDetails" class="note">No money lent yet. Use <b>＋ Add Money → Money Lent</b> to record a loan.</div>
+</section>
+
+<section class="section">
+  <div class="section-title">Gold Portfolio 🪙</div>
+  <div id="goldDetails" class="note">Add gold to start tracking it.</div>
+</section>
+</div>
+
+<!-- Add -->
+<div class="modal" id="addModal"><div class="sheet">
+<button class="close" onclick="closeModals()">×</button><h2>Add Money</h2>
+<div class="options">
+<button class="option" onclick="showIncomeForm('salary')"><span>💵</span>Salary</button>
+<button class="option" onclick="showGoldForm()"><span>🪙</span>Gold</button>
+<button class="option" onclick="showIncomeForm('other')"><span>💰</span>Other</button>
+<button class="option" onclick="showDirectAmountForm()"><span>➕</span>Amount</button>
+<button class="option" onclick="showLoanForm()"><span>🤝</span>Money Lent</button>
+</div></div></div>
+
+<!-- Form -->
+<div class="modal" id="formModal"><div class="sheet" id="formContent"></div></div>
+
+<!-- History -->
+<div class="modal" id="historyModal"><div class="sheet"><button class="close" onclick="closeModals()">×</button><h2>Transaction History</h2><div id="allHistory"></div></div></div>
+
+<!-- Settings -->
+<div class="modal" id="settingsModal"><div class="sheet">
+<button class="close" onclick="closeModals()">×</button><h2>Settings</h2>
+<div class="form">
+<label>GoldAPI.io API Key</label>
+<input id="apiKey" type="password" placeholder="Paste your API key">
+<label>Gold purity</label>
+<select id="purity"><option value="22">22K</option><option value="24">24K</option></select>
+<button class="primary" onclick="saveSettings()">Save Settings & Update Gold</button>
+<div class="note">The app uses GoldAPI.io for XAU/INR spot gold data. Its free sandbox currently allows up to 100 requests/month, so this app caches the rate for the day instead of calling the API repeatedly. </div>
+<button class="secondary" onclick="exportData()">Export Backup (JSON)</button>
+<button class="secondary" onclick="document.getElementById('importFile').click()">Import Backup (JSON)</button>
+<input id="importFile" type="file" accept=".json" style="display:none" onchange="importData(event)">
+<button class="danger" onclick="clearAllData()">Delete All Data</button>
+</div></div></div>
+
+<input id="manualGoldRate" type="hidden">
+
+<script>
+const KEY='myMoneyTracker_v1';
+let db=JSON.parse(localStorage.getItem(KEY)||'null')||{
+  salary:0, other:0, amount:0, used:0, goldGrams:0, goldInvested:0, goldPurchases:[],
+  loans:[], transactions:[], goldRate:null, goldRateDate:null, goldRatePurity:22, apiKey:''
+};
+db.amount = Number(db.amount||0);
+db.loans = Array.isArray(db.loans) ? db.loans : [];
+
+const money=n=>new Intl.NumberFormat('en-IN',{style:'currency',currency:'INR',maximumFractionDigits:2}).format(Number(n)||0);
+const today=()=>new Date().toISOString().slice(0,10);
+function save(){localStorage.setItem(KEY,JSON.stringify(db));render();}
+function totalGoldValue(){return (db.goldGrams||0)*(db.goldRate||0)}
+function totalBalance(){return (db.salary||0)+(db.other||0)+(db.amount||0)+totalGoldValue()-(db.used||0)}
+
+function render(){
+ document.getElementById('totalBalance').textContent=money(totalBalance());
+ document.getElementById('salaryValue').textContent=money(db.salary);
+ document.getElementById('otherValue').textContent=money(db.other);
+ document.getElementById('amountValue').textContent=money(db.amount);
+ document.getElementById('usedValue').textContent=money(db.used);
+ document.getElementById('loanValue').textContent=money(outstandingLoanExpected());
+ document.getElementById('goldValue').textContent=money(totalGoldValue());
+ document.getElementById('goldHint').textContent=`${(db.goldGrams||0).toFixed(3)} g • ${db.goldRate?money(db.goldRate)+'/g':'rate unavailable'}`;
+ document.getElementById('goldUpdated').textContent=db.goldRate?`Gold ${db.goldRatePurity}K: ${money(db.goldRate)}/g • Updated ${db.goldRateDate}`:'Gold rate: add API key in ⚙️ Settings';
+ renderHistory('history',5);
+ renderGoldDetails();
+ renderLoanDetails();
+}
+
+function renderHistory(id,limit){
+ const box=document.getElementById(id); let arr=[...(db.transactions||[])].reverse();
+ if(limit)arr=arr.slice(0,limit);
+ if(!arr.length){box.innerHTML='<div class="empty">No transactions yet.</div>';return}
+ box.innerHTML=arr.map(t=>`<div class="history-item">
+ <div><div class="history-title">${escapeHtml(t.title)}</div><div class="history-meta">${t.date}${t.note?' • '+escapeHtml(t.note):''}</div></div>
+ <div class="${t.type==='use'?'neg':'pos'}">${t.type==='use'?'−':'+'}${money(t.amount)}</div></div>`).join('');
+}
+function outstandingLoanExpected(){
+ return (db.loans||[]).filter(l=>l.status!=='returned').reduce((sum,l)=>sum+Number(l.returnAmount||0),0);
+}
+function renderLoanDetails(){
+ const el=document.getElementById('loanDetails');
+ const loans=db.loans||[];
+ if(!loans.length){el.innerHTML='No money lent yet. Use <b>＋ Add Money → Money Lent</b> to record a loan.';return}
+ el.innerHTML=loans.slice().reverse().map(l=>{
+   const returned=l.status==='returned';
+   return `<div class="history-item">
+   <div><div class="history-title">🤝 ${escapeHtml(l.person)}</div>
+   <div class="history-meta">Given: ${money(l.givenAmount)} • ${l.givenDate}<br>Return: ${money(l.returnAmount)} • Due: ${l.returnDate}${l.note?' • '+escapeHtml(l.note):''}</div></div>
+   <div style="text-align:right">${returned?'<span class="pos">Returned</span>':'<button class="secondary" style="width:auto;padding:8px 10px" onclick="markLoanReturned(\''+l.id+'\')">Mark Returned</button>'}</div>
+   </div>`;
+ }).join('');
+}
+function renderGoldDetails(){
+ const el=document.getElementById('goldDetails');
+ if(!db.goldGrams){el.innerHTML='No gold added yet. Use <b>＋ Add Money → 🪙 Gold</b> to add your gold.';return}
+ const profit=totalGoldValue()-(db.goldInvested||0);
+ el.innerHTML=`<b>Total Gold:</b> ${db.goldGrams.toFixed(3)} g<br>
+ <b>Invested:</b> ${money(db.goldInvested)}<br>
+ <b>Current Value:</b> ${money(totalGoldValue())}<br>
+ <b>Current ${db.goldRatePurity}K Rate:</b> ${money(db.goldRate||0)}/g<br>
+ <b>Unrealised ${profit>=0?'Profit':'Loss'}:</b> <span class="${profit>=0?'pos':'neg'}">${money(Math.abs(profit))}</span>`;
+}
+function escapeHtml(s){return String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]))}
+
+function openAdd(){document.getElementById('addModal').classList.add('show')}
+function openUse(){showUseForm()}
+function closeModals(){document.querySelectorAll('.modal').forEach(x=>x.classList.remove('show'))}
+function showIncomeForm(kind){
+ closeModals();document.getElementById('formModal').classList.add('show');
+ const title=kind==='salary'?'Add Salary':'Add Other Income';
+ document.getElementById('formContent').innerHTML=`<button class="close" onclick="closeModals()">×</button><h2>${title}</h2>
+ <div class="form"><label>Amount (₹)</label><input id="amount" type="number" min="0" step="0.01" placeholder="Enter amount">
+ <label>Purpose / Note</label><input id="note" placeholder="${kind==='salary'?'September salary':'e.g. Freelance, gift, refund'}">
+ <button class="primary" onclick="saveIncome('${kind}')">Add ${kind==='salary'?'Salary':'Other Income'}</button></div>`;
+}
+function saveIncome(kind){
+ const amount=Number(document.getElementById('amount').value),note=document.getElementById('note').value.trim();
+ if(!(amount>0))return alert('Enter a valid amount.');
+ db[kind]+=amount;db.transactions.push({type:'add',title:kind==='salary'?'Salary Added':'Other Income Added',amount,date:today(),note});
+ save();closeModals();
+}
+function showDirectAmountForm(){
+ closeModals();document.getElementById('formModal').classList.add('show');
+ document.getElementById('formContent').innerHTML=`<button class="close" onclick="closeModals()">×</button><h2>Add Amount</h2>
+ <div class="form"><label>Amount (₹)</label><input id="amount" type="number" min="0" step="0.01" placeholder="Enter amount">
+ <label>Purpose / Note</label><input id="note" placeholder="e.g. Cash added, savings, refund">
+ <button class="primary" onclick="saveDirectAmount()">Add Amount</button></div>`;
+}
+function saveDirectAmount(){
+ const amount=Number(document.getElementById('amount').value),note=document.getElementById('note').value.trim();
+ if(!(amount>0))return alert('Enter a valid amount.');
+ db.amount+=amount;
+ db.transactions.push({type:'add',title:'Amount Added',amount,date:today(),note:note||'Direct amount'});
+ save();closeModals();
+}
+function showLoanForm(){
+ closeModals();document.getElementById('formModal').classList.add('show');
+ document.getElementById('formContent').innerHTML=`<button class="close" onclick="closeModals()">×</button><h2>Money Lent 🤝</h2>
+ <div class="form"><label>Person Name</label><input id="person" placeholder="Enter person's name">
+ <label>Amount Given (₹)</label><input id="given" type="number" min="0" step="0.01" placeholder="e.g. 10000">
+ <label>Amount to be Returned (₹)</label><input id="returnAmount" type="number" min="0" step="0.01" placeholder="e.g. 12000">
+ <label>Date Given</label><input id="givenDate" type="date" value="${today()}">
+ <label>Return Date</label><input id="returnDate" type="date">
+ <label>Purpose / Note</label><input id="loanNote" placeholder="Why you gave the money">
+ <button class="primary" onclick="saveLoan()">Save Money Lent</button></div>`;
+}
+function saveLoan(){
+ const person=document.getElementById('person').value.trim();
+ const given=Number(document.getElementById('given').value);
+ const ret=Number(document.getElementById('returnAmount').value);
+ const givenDate=document.getElementById('givenDate').value||today();
+ const returnDate=document.getElementById('returnDate').value;
+ const note=document.getElementById('loanNote').value.trim();
+ if(!person||!(given>0)||!(ret>0)||!returnDate)return alert('Please fill person name, amounts and return date.');
+ if(given>totalBalance())return alert('The amount given is greater than your current total balance.');
+ const loan={id:String(Date.now()),person,givenAmount:given,returnAmount:ret,givenDate,returnDate,note,status:'pending'};
+ db.loans.push(loan);
+ db.used+=given;
+ db.transactions.push({type:'use',title:'Money Lent to '+person,amount:given,date:givenDate,note:'Expected return '+money(ret)+' on '+returnDate});
+ save();closeModals();
+}
+function markLoanReturned(id){
+ const loan=(db.loans||[]).find(l=>l.id===id);
+ if(!loan||loan.status==='returned')return;
+ const actual=prompt('Enter amount actually returned by '+loan.person, String(loan.returnAmount));
+ const returned=Number(actual);
+ if(!(returned>=0))return;
+ loan.status='returned';loan.actualReturn=returned;loan.returnedDate=today();
+ db.used=Math.max(0,(db.used||0)-Number(loan.givenAmount||0));
+ db.amount=(db.amount||0)+returned;
+ db.transactions.push({type:'add',title:'Loan Returned by '+loan.person,amount:returned,date:today(),note:'Loan given '+money(loan.givenAmount)});
+ save();
+}
+function showUseForm(){
+ closeModals();document.getElementById('formModal').classList.add('show');
+ document.getElementById('formContent').innerHTML=`<button class="close" onclick="closeModals()">×</button><h2>Use Money</h2>
+ <div class="form"><label>Amount (₹)</label><input id="amount" type="number" min="0" step="0.01" placeholder="Enter amount">
+ <label>Purpose</label><input id="note" placeholder="Food, travel, shopping, bill...">
+ <button class="primary" onclick="saveUse()">Record Expense</button></div>`;
+}
+function saveUse(){
+ const amount=Number(document.getElementById('amount').value),note=document.getElementById('note').value.trim();
+ if(!(amount>0))return alert('Enter a valid amount.');
+ if(amount>totalBalance())return alert('This expense is greater than your current total balance.');
+ db.used+=amount;db.transactions.push({type:'use',title:'Money Used',amount,date:today(),note:note||'Expense'});
+ save();closeModals();
+}
+function showGoldForm(){
+ closeModals();document.getElementById('formModal').classList.add('show');
+ document.getElementById('formContent').innerHTML=`<button class="close" onclick="closeModals()">×</button><h2>Buy Gold 🪙</h2>
+ <div class="form"><label>Gold quantity (grams)</label><input id="grams" type="number" min="0.001" step="0.001" placeholder="e.g. 5">
+ <label>Amount paid (₹)</label><input id="paid" type="number" min="0" step="0.01" placeholder="e.g. 35000">
+ <label>Purity</label><select id="goldPurity"><option value="22">22K</option><option value="24">24K</option></select>
+ <label>Note</label><input id="goldNote" placeholder="Ring, chain, coin...">
+ <div class="note">The current market value will use the latest API gold rate. Your purchase amount is kept separately so profit/loss can be calculated.</div>
+ <button class="primary" onclick="saveGold()">Save Gold Purchase</button></div>`;
+}
+function saveGold(){
+ const grams=Number(document.getElementById('grams').value),paid=Number(document.getElementById('paid').value),purity=Number(document.getElementById('goldPurity').value),note=document.getElementById('goldNote').value.trim();
+ if(!(grams>0)||!(paid>=0))return alert('Enter valid gold quantity and amount.');
+ db.goldGrams+=grams;db.goldInvested+=paid;db.goldPurchases.push({grams,paid,purity,date:today(),note});
+ db.transactions.push({type:'gold',title:`Gold Purchased • ${grams}g`,amount:paid,date:today(),note:note||`${purity}K gold`});
+ db.goldRatePurity=purity;save();closeModals();
+ if(db.apiKey)fetchGoldRate(true);
+}
+async function fetchGoldRate(force=false){
+ if(!db.apiKey){render();return}
+ if(!force && db.goldRate && db.goldRateDate===today())return;
+ const url='https://www.goldapi.io/api/price/XAU/INR';
+ try{
+   const res=await fetch(url,{headers:{'x-access-token':db.apiKey,'Content-Type':'application/json'}});
+   if(!res.ok)throw new Error('API request failed: '+res.status);
+   const d=await res.json();
+   const p=db.goldRatePurity===24?d.price_gram_24k:d.price_gram_22k;
+   if(!p)throw new Error('Gold price missing');
+   db.goldRate=Number(p);db.goldRateDate=today();save();
+ }catch(e){
+   alert('Gold rate could not be updated. Check your API key/internet. Your last saved rate is still being used.');
+ }
+}
+function openSettings(){
+ document.getElementById('settingsModal').classList.add('show');
+ document.getElementById('apiKey').value=db.apiKey||'';
+ document.getElementById('purity').value=db.goldRatePurity||22;
+}
+function saveSettings(){
+ db.apiKey=document.getElementById('apiKey').value.trim();
+ db.goldRatePurity=Number(document.getElementById('purity').value);
+ db.goldRateDate=null;save();closeModals();fetchGoldRate(true);
+}
+function openAllHistory(){document.getElementById('historyModal').classList.add('show');renderHistory('allHistory')}
+function exportData(){
+ const blob=new Blob([JSON.stringify(db,null,2)],{type:'application/json'});
+ const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='my-money-backup.json';a.click();URL.revokeObjectURL(a.href);
+}
+function importData(e){
+ const file=e.target.files[0];if(!file)return;
+ const r=new FileReader();r.onload=()=>{try{db=JSON.parse(r.result);db.amount=Number(db.amount||0);db.loans=Array.isArray(db.loans)?db.loans:[];save();alert('Backup imported successfully.')}catch{alert('Invalid backup file.')}};r.readAsText(file);
+}
+function clearAllData(){
+ if(confirm('Delete ALL finance, gold and transaction data?')){localStorage.removeItem(KEY);location.reload()}
+}
+render();
+fetchGoldRate();
+</script>
+</body>
+</html>
