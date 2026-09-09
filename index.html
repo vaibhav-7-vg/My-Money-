@@ -299,4 +299,29 @@ async function fetchGoldRate(force=false){
  }
 }
 function openSettings(){
- docum
+ document.getElementById('settingsModal').classList.add('show');
+ document.getElementById('apiKey').value=db.apiKey||'';
+ document.getElementById('purity').value=db.goldRatePurity||22;
+}
+function saveSettings(){
+ db.apiKey=document.getElementById('apiKey').value.trim();
+ db.goldRatePurity=Number(document.getElementById('purity').value);
+ db.goldRateDate=null;save();closeModals();fetchGoldRate(true);
+}
+function openAllHistory(){document.getElementById('historyModal').classList.add('show');renderHistory('allHistory')}
+function exportData(){
+ const blob=new Blob([JSON.stringify(db,null,2)],{type:'application/json'});
+ const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='my-money-backup.json';a.click();URL.revokeObjectURL(a.href);
+}
+function importData(e){
+ const file=e.target.files[0];if(!file)return;
+ const r=new FileReader();r.onload=()=>{try{db=JSON.parse(r.result);db.amount=Number(db.amount||0);db.loans=Array.isArray(db.loans)?db.loans:[];save();alert('Backup imported successfully.')}catch{alert('Invalid backup file.')}};r.readAsText(file);
+}
+function clearAllData(){
+ if(confirm('Delete ALL finance, gold and transaction data?')){localStorage.removeItem(KEY);location.reload()}
+}
+render();
+fetchGoldRate();
+</script>
+</body>
+</html>
