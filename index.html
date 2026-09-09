@@ -155,7 +155,7 @@ function renderHistory(id,limit){
  if(!arr.length){box.innerHTML='<div class="empty">No transactions yet.</div>';return}
  box.innerHTML=arr.map(t=>{
    const safeId=String(t.id||'').replace(/[^a-zA-Z0-9_-]/g,'');
-   const canDelete=!!safeId && t.kind!=='gold';
+   const canDelete=!!safeId;
    return `<div class="history-item">
    <div><div class="history-title">${escapeHtml(t.title)}</div><div class="history-meta">${t.date}${t.note?' • '+escapeHtml(t.note):''}</div></div>
    <div style="text-align:right"><span class="${t.type==='use'?'neg':'pos'}">${t.type==='use'?'−':'+'}${money(t.amount)}</span>${canDelete?`<button class="delete-btn" onclick="deleteTransaction('${safeId}')">Delete</button>`:''}</div></div>`;
@@ -285,13 +285,19 @@ function deleteTransaction(id){
    db.loans=(db.loans||[]).filter(l=>String(l.id)!==String(t.loanId));
  }
  else if(t.kind==='loanReturn'){
-  db.amount=Math.max(0,(db.amount||0)-Number(t.amount||0));
+   db.amount=Math.max(0,(db.amount||0)-Number(t.amount||0));
    const loan=(db.loans||[]).find(l=>String(l.id)===String(t.loanId));
    if(loan){loan.status='pending';delete loan.actualReturn;delete loan.returnedDate;}
  }
  else if(t.kind==='gold'){
-   alert('Gold purchases cannot be deleted from History yet. Use the Gold Portfolio records so your grams and investment stay correct.');
-   return;
+   const purchase=(db.goldPurchases||[]).find(g=>String(g.id)===String(t.goldPurchaseId));
+   if(!purchase){
+     alert('Gold purchase record not found.');
+     return;
+   }
+   db.goldGrams=Math.max(0,(db.goldGrams||0)-Number(purchase.grams||0));
+   db.goldInvested=Math.max(0,(db.goldInvested||0)-Number(purchase.paid||0));
+   db.goldPurchases=(db.goldPurchases||[]).filter(g=>String(g.id)!==String(purchase.id));
  }
  db.transactions=db.transactions.filter(x=>String(x.id)!==String(id));
  save();
