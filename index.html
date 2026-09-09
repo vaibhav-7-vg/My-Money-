@@ -34,11 +34,12 @@ header{display:flex;justify-content:space-between;align-items:center;margin-bott
 .form{display:grid;gap:12px}.form label{font-size:12px;color:#667085;font-weight:700}.form input,.form select{width:100%;padding:13px;border:1px solid #d0d5dd;border-radius:13px;outline:none;background:#fff}.form input:focus,.form select:focus{border-color:#344054;box-shadow:0 0 0 3px #34405418}.primary{width:100%;padding:14px;border-radius:14px;background:#0b1220;color:#fff;font-weight:800}
 .secondary{width:100%;padding:13px;border-radius:14px;background:#eef2f6;color:#101828;font-weight:700}
 .note{font-size:11px;color:#667085;line-height:1.5;background:#f8fafc;padding:10px;border-radius:12px}
-.row{display:flex;justify-content:space-between;align-items:center;gap:10px}.danger{color:#b42318;background:#fff1f0;padding:10px 12px;border-radius:11px;font-weight:700}.delete-btn{background:#fff1f0;color:#b42318;border-radius:9px;padding:7px 9px;font-size:11px;font-weight:800;margin-left:8px}
+.row{display:flex;justify-content:space-between;align-items:center;gap:10px}.page-viewport{width:100%;overflow:hidden;min-height:100vh}.page-track{display:flex;width:200%;transition:transform .55s cubic-bezier(.22,.8,.2,1);will-change:transform}.prediction-page{width:50%;min-width:50%;padding:18px;overflow-y:auto}.prediction-inner{max-width:900px;margin:auto}.prediction-balance{background:linear-gradient(135deg,#0878ff,#0057d9);color:#fff;border-radius:24px;padding:24px;margin-bottom:14px;box-shadow:0 14px 30px #0878ff33}.prediction-balance small{color:#dbeafe}.prediction-balance h1{font-size:38px;margin:6px 0 4px;letter-spacing:-1px}.prediction-result{margin-top:12px;font-size:13px;color:#dbeafe}.prediction-controls{background:#fff;border-radius:20px;padding:18px;margin-bottom:14px;box-shadow:0 7px 22px #1018280b}.prediction-cards{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}.prediction-card{background:#fff;border-radius:20px;padding:17px;box-shadow:0 7px 22px #1018280b}.prediction-card .label{font-size:12px;color:#667085}.prediction-card .value{font-size:22px;font-weight:800;margin-top:7px}.prediction-card .hint{font-size:11px;color:#98a2b3;margin-top:4px}.predict-button{margin-top:12px;background:#0b1220;color:#fff;width:100%;padding:15px;border-radius:15px;font-weight:800}.page-hint{text-align:center;color:#98a2b3;font-size:11px;padding:4px 0 12px}.prediction-loading{animation:predictionPulse .8s ease-in-out infinite alternate}@keyframes predictionPulse{from{opacity:.45;transform:scale(.98)}to{opacity:1;transform:scale(1.02)}}.expense-box{display:none}.expense-box.show{display:grid}.nav-dots{text-align:center;margin:8px 0 16px;color:#98a2b3;font-size:18px;letter-spacing:5px}.nav-dots .active{color:#0b1220}@media(min-width:700px){.prediction-cards{grid-template-columns:repeat(4,1fr)}}.danger{color:#b42318;background:#fff1f0;padding:10px 12px;border-radius:11px;font-weight:700}.delete-btn{background:#fff1f0;color:#b42318;border-radius:9px;padding:7px 9px;font-size:11px;font-weight:800;margin-left:8px}
 @media(min-width:700px){.cards{grid-template-columns:repeat(4,1fr)}.modal{align-items:center}.sheet{border-radius:24px}}
 </style>
 </head>
 <body>
+<div class="page-viewport" id="pageViewport"><div class="page-track" id="pageTrack">
 <div class="app">
 <header>
   <div><div class="brand">My Money 💰</div><div class="sub">Personal Finance & Gold Tracker</div></div>
@@ -80,6 +81,26 @@ header{display:flex;justify-content:space-between;align-items:center;margin-bott
   <div id="goldDetails" class="note">Add gold to start tracking it.</div>
 </section>
 </div>
+
+<div class="prediction-page" id="predictionPage"><div class="prediction-inner">
+<div class="page-hint">Swipe right → left for Prediction • Swipe left → right to return</div>
+<div class="nav-dots"><span id="dotDashboard" class="active">●</span><span id="dotPrediction">○</span></div>
+<section class="prediction-balance"><small>TOTAL NET WORTH</small><h1 id="predictionCurrentBalance">₹0</h1><div class="prediction-result" id="predictionResultText">Your current total is shown here.</div></section>
+<section class="prediction-controls"><div class="section-title">🔮 Predict Future Amount</div><div class="form">
+<label>Predict for</label><select id="predictionMonths" onchange="updatePredictionControls()"><option value="1">1 Month</option><option value="2">2 Months</option><option value="3" selected>3 Months</option><option value="6">6 Months</option><option value="9">9 Months</option><option value="12">12 Months</option><option value="18">18 Months</option><option value="24">24 Months</option><option value="36">36 Months</option></select>
+<label>Monthly Salary (₹)</label><input id="predictionSalary" type="number" min="0" step="500" value="15000" placeholder="15000">
+<div class="note">₹15,000 is the default midpoint of your ₹14,000–₹16,000 monthly salary range. You can change it if needed.</div>
+<div class="note">Compulsory monthly extra amount: <b>₹1,500</b>. This is always added.</div>
+<div class="expense-box form" id="predictionExpenseBox"><label>Estimated Monthly Expenses (₹)</label><input id="predictionExpense" type="number" min="0" step="500" value="8000" placeholder="Enter monthly expenses"><div class="note">This option appears only for predictions longer than 12 months.</div></div>
+<button class="predict-button" onclick="runPrediction()">🔮 Predict Now</button></div></section>
+<section class="prediction-cards">
+<div class="prediction-card"><div class="label">Monthly Income</div><div class="value" id="predMonthlyIncome">₹16,500</div><div class="hint">Salary + ₹1,500</div></div>
+<div class="prediction-card"><div class="label">Gold Future Value</div><div class="value" id="predGoldValue">₹0</div><div class="hint">Estimated value</div></div>
+<div class="prediction-card"><div class="label">Added Over Period</div><div class="value" id="predAddedAmount">₹0</div><div class="hint">Income added</div></div>
+<div class="prediction-card"><div class="label">Projected Total</div><div class="value" id="predProjectedTotal">₹0</div><div class="hint" id="predPeriodHint">After 3 months</div></div></section>
+<section class="section" style="margin-top:14px"><div class="section-title">📊 Prediction Summary</div><div id="predictionSummary" class="note">Choose the number of months and tap Predict Now.</div></section>
+</div></div>
+</div></div>
 
 <!-- Add -->
 <div class="modal" id="addModal"><div class="sheet">
@@ -140,6 +161,7 @@ function totalBalance(){return (db.salary||0)+(db.other||0)+(db.amount||0)+total
 
 function render(){
  document.getElementById('totalBalance').textContent=money(totalBalance());
+ document.getElementById('predictionCurrentBalance').textContent=money(totalBalance());
  document.getElementById('salaryValue').textContent=money(db.salary);
  document.getElementById('otherValue').textContent=money(db.other);
  document.getElementById('amountValue').textContent=money(db.amount);
@@ -238,7 +260,7 @@ function showLoanForm(){
  <label>Return Date</label><input id="returnDate" type="date">
  <label>Purpose / Note</label><input id="loanNote" placeholder="Why you gave the money">
  <button class="primary" onclick="saveLoan()">Save Money Lent</button></div>`;
-}
+  }
 function saveLoan(){
  const person=document.getElementById('person').value.trim();
  const given=Number(document.getElementById('given').value);
@@ -277,8 +299,8 @@ function saveUse(){
  if(amount>totalBalance())return alert('This expense is greater than your current total balance.');
  db.used+=amount;db.transactions.push({id:String(Date.now())+Math.random().toString(16).slice(2),kind:'used',type:'use',title:'Money Used',amount,date:today(),note:note||'Expense'});
  save();closeModals();
-}
-function deleteTransaction(id){
+  }
+  function deleteTransaction(id){
  const t=(db.transactions||[]).find(x=>String(x.id)===String(id));
  if(!t)return;
  if(!confirm('Delete this transaction? The amount will be removed from the related total.'))return;
@@ -352,6 +374,64 @@ async function fetchGoldRate(force=false){
    }
  }
 }
+function updatePredictionControls(){
+ const months=Number(document.getElementById('predictionMonths').value)||3;
+ document.getElementById('predictionExpenseBox').classList.toggle('show',months>12);
+  }
+function predictionGoldFutureValue(months){
+ const current=totalGoldValue();
+ if(!(current>0))return 0;
+ const annualRate=0.08;
+ return current*Math.pow(1+annualRate,months/12);
+}
+function animateMoney(el,from,to,duration=1600){
+ if(!el)return; const start=performance.now();
+ function frame(now){
+  const p=Math.min((now-start)/duration,1),eased=1-Math.pow(1-p,3);
+  el.textContent=money(from+(to-from)*eased);
+  if(p<1)requestAnimationFrame(frame);
+ }
+ requestAnimationFrame(frame);
+}
+function runPrediction(){
+ const months=Math.max(1,Number(document.getElementById('predictionMonths').value)||3);
+ const salary=Math.max(0,Number(document.getElementById('predictionSalary').value)||0);
+ const extra=1500; const monthlyIncome=salary+extra;
+ const monthlyExpense=months>12?Math.max(0,Number(document.getElementById('predictionExpense').value)||0):0;
+ const current=totalBalance(); const currentGold=totalGoldValue();
+ const futureGold=predictionGoldFutureValue(months);
+ const goldGrowth=Math.max(0,futureGold-currentGold);
+ const netIncome=monthlyIncome*months-monthlyExpense*months;
+ const projected=current+netIncome+goldGrowth;
+ const oldProjected=Number(document.getElementById('predProjectedTotal').dataset.value||current);
+ document.getElementById('predProjectedTotal').dataset.value=String(projected);
+ document.getElementById('predMonthlyIncome').textContent=money(monthlyIncome);
+ document.getElementById('predGoldValue').textContent=money(futureGold);
+ document.getElementById('predAddedAmount').textContent=money(monthlyIncome*months);
+ document.getElementById('predPeriodHint').textContent='After '+months+' month'+(months===1?'':'s');
+ document.getElementById('predictionCurrentBalance').textContent=money(current);
+ const status=document.getElementById('predictionResultText'); status.textContent='🔮 Calculating...'; status.classList.add('prediction-loading');
+ setTimeout(()=>{
+  animateMoney(document.getElementById('predProjectedTotal'),oldProjected,projected);
+  status.classList.remove('prediction-loading');
+  status.textContent='Estimated total after '+months+' month'+(months===1?'':'s')+': '+money(projected);
+  document.getElementById('predictionSummary').innerHTML=`Starting total: <b>${money(current)}</b><br>Salary: ${money(salary)} × ${months} = <b>${money(salary*months)}</b><br>Compulsory extra: ${money(extra)} × ${months} = <b>${money(extra*months)}</b>${months>12?'<br>Expenses: '+money(monthlyExpense)+' × '+months+' = <b class="neg">−'+money(monthlyExpense*months)+'</b>':''}<br>Gold estimated future value: <b>${money(futureGold)}</b><br><br><b>Projected Total: ${money(projected)}</b><br><span style="font-size:10px">Gold future value uses an 8% yearly growth estimate; it is not a guaranteed future market price.</span>`;
+ },700);
+}
+function setPredictionPage(show){
+ const track=document.getElementById('pageTrack'); if(!track)return;
+ track.style.transform=show?'translateX(-50%)':'translateX(0)';
+ document.getElementById('dotDashboard').textContent=show?'○':'●'; document.getElementById('dotPrediction').textContent=show?'●':'○';
+ if(show){document.getElementById('predictionCurrentBalance').textContent=money(totalBalance());updatePredictionControls();}
+  }
+  (function initSwipe(){
+ let startX=0,startY=0,moved=false; const vp=document.getElementById('pageViewport'); if(!vp)return;
+ vp.addEventListener('touchstart',e=>{if(!e.touches.length)return;startX=e.touches[0].clientX;startY=e.touches[0].clientY;moved=false},{passive:true});
+ vp.addEventListener('touchmove',e=>{if(!e.touches.length)return;const dx=e.touches[0].clientX-startX,dy=e.touches[0].clientY-startY;if(Math.abs(dx)>12&&Math.abs(dx)>Math.abs(dy)){moved=true;e.preventDefault()}},{passive:false});
+ vp.addEventListener('touchend',e=>{if(!moved)return;const dx=e.changedTouches[0].clientX-startX;if(dx<-60)setPredictionPage(true);else if(dx>60)setPredictionPage(false);});
+})();
+updatePredictionControls();
+
 function openSettings(){
  document.getElementById('settingsModal').classList.add('show');
  document.getElementById('purity').value=db.goldRatePurity||22;
