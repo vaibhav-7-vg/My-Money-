@@ -102,12 +102,10 @@ header{display:flex;justify-content:space-between;align-items:center;margin-bott
 <div class="modal" id="settingsModal"><div class="sheet">
 <button class="close" onclick="closeModals()">×</button><h2>Settings</h2>
 <div class="form">
-<label>GoldAPI.io API Key</label>
-<input id="apiKey" type="password" placeholder="Paste your API key">
 <label>Gold purity</label>
 <select id="purity"><option value="22">22K</option><option value="24">24K</option></select>
 <button class="primary" onclick="saveSettings()">Save Settings & Update Gold</button>
-<div class="note">The app uses GoldAPI.io for XAU/INR spot gold data. Its free sandbox currently allows up to 100 requests/month, so this app caches the rate for the day instead of calling the API repeatedly. </div>
+<div class="note">Gold price is fetched automatically from XAUS. No API key is required. The app caches the rate for the day to avoid unnecessary requests. This is a market/metal value, not a jewellery shop buyback price.</div>
 <button class="secondary" onclick="exportData()">Export Backup (JSON)</button>
 <button class="secondary" onclick="document.getElementById('importFile').click()">Import Backup (JSON)</button>
 <input id="importFile" type="file" accept=".json" style="display:none" onchange="importData(event)">
@@ -120,17 +118,24 @@ header{display:flex;justify-content:space-between;align-items:center;margin-bott
 const KEY='myMoneyTracker_v1';
 let db=JSON.parse(localStorage.getItem(KEY)||'null')||{
   salary:0, other:0, amount:0, used:0, goldGrams:0, goldInvested:0, goldPurchases:[],
-  loans:[], transactions:[], goldRate:null, goldRateDate:null, goldRatePurity:22, apiKey:''
+  loans:[], transactions:[], goldRate:null, goldRateDate:null, goldRatePurity:22, goldRates:{22:null,24:null}, apiKey:''
 };
 db.amount = Number(db.amount||0);
 db.loans = Array.isArray(db.loans) ? db.loans : [];
 db.transactions = Array.isArray(db.transactions) ? db.transactions : [];
+db.goldPurchases = Array.isArray(db.goldPurchases) ? db.goldPurchases : [];
+db.goldRates = (db.goldRates && typeof db.goldRates==='object') ? db.goldRates : {22:null,24:null};
+if(db.goldRate && !db.goldRates[db.goldRatePurity]) db.goldRates[db.goldRatePurity]=Number(db.goldRate);
 db.transactions.forEach(t=>{ if(!t.id)t.id=String(Date.now())+Math.random().toString(16).slice(2); if(!t.kind){ if(t.title==='Salary Added')t.kind='salary'; else if(t.title==='Other Income Added')t.kind='other'; else if(t.title==='Amount Added')t.kind='amount'; else if(t.title==='Money Used')t.kind='used'; else if(t.title && t.title.startsWith('Money Lent to '))t.kind='loan'; }});
 
 const money=n=>new Intl.NumberFormat('en-IN',{style:'currency',currency:'INR',maximumFractionDigits:2}).format(Number(n)||0);
 const today=()=>new Date().toISOString().slice(0,10);
 function save(){localStorage.setItem(KEY,JSON.stringify(db));render();}
-function totalGoldValue(){return (db.goldGrams||0)*(db.goldRate||0)}
+function rateForPurity(purity){return Number((db.goldRates||{})[Number(purity)])||0}
+function totalGoldValue(){
+  if((db.goldPurchases||[]).length) return db.goldPurchases.reduce((sum,g)=>sum+Number(g.grams||0)*rateForPurity(g.purity||db.goldRatePurity||22),0);
+  return (db.goldGrams||0)*(db.goldRate||0);
+}
 function totalBalance(){return (db.salary||0)+(db.other||0)+(db.amount||0)+totalGoldValue()-(db.used||0)+outstandingLoanExpected()}
 
 function render(){
@@ -143,7 +148,7 @@ function render(){
  document.getElementById('loanExpectedValue').textContent=money(outstandingLoanExpected());
  document.getElementById('goldValue').textContent=money(totalGoldValue());
  document.getElementById('goldHint').textContent=`${(db.goldGrams||0).toFixed(3)} g • ${db.goldRate?money(db.goldRate)+'/g':'rate unavailable'}`;
- document.getElementById('goldUpdated').textContent=db.goldRate?`Gold ${db.goldRatePurity}K: ${money(db.goldRate)}/g • Updated ${db.goldRateDate}`:'Gold rate: add API key in ⚙️ Settings';
+ document.getElementById('goldUpdated').textContent=db.goldRate?`Gold rates updated ${db.goldRateDate} • 22K ${money(rateForPurity(22))}/g • 24K ${money(rateForPurity(24))}/g`:'Gold rate: not loaded — tap ⚙️ Settings to update';
  renderHistory('history',5);
  renderGoldDetails();
  renderLoanDetails();
@@ -187,7 +192,7 @@ function renderGoldDetails(){
  el.innerHTML=`<b>Total Gold:</b> ${db.goldGrams.toFixed(3)} g<br>
  <b>Invested:</b> ${money(db.goldInvested)}<br>
  <b>Current Value:</b> ${money(totalGoldValue())}<br>
- <b>Current ${db.goldRatePurity}K Rate:</b> ${money(db.goldRate||0)}/g<br>
+ <b>Current 22K Rate:</b> ${money(rateForPurity(22))}/g<br><b>Current 24K Rate:</b> ${money(rateForPurity(24))}/g<br>
  <b>Unrealised ${profit>=0?'Profit':'Loss'}:</b> <span class="${profit>=0?'pos':'neg'}">${money(Math.abs(profit))}</span>`;
 }
 function escapeHtml(s){return String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]))}
@@ -320,30 +325,38 @@ function saveGold(){
  db.goldPurchases.push(purchase);
  db.transactions.push({id:String(Date.now())+Math.random().toString(16).slice(2),kind:'gold',goldPurchaseId:purchase.id,type:'gold',title:`Gold Purchased • ${grams}g`,amount:paid,date:today(),note:note||`${purity}K gold`});
  db.goldRatePurity=purity;save();closeModals();
- if(db.apiKey)fetchGoldRate(true);
+ fetchGoldRate(true);
 }
 async function fetchGoldRate(force=false){
- if(!db.apiKey){render();return}
- if(!force && db.goldRate && db.goldRateDate===today())return;
- const url='https://www.goldapi.io/api/price/XAU/INR';
+ if(!force && db.goldRates && rateForPurity(22)>0 && rateForPurity(24)>0 && db.goldRateDate===today())return;
+ const url='https://xaus.com/api/v1/spot?currency=INR&unit=gram&compact=1';
  try{
-   const res=await fetch(url,{headers:{'x-access-token':db.apiKey,'Content-Type':'application/json'}});
-   if(!res.ok)throw new Error('API request failed: '+res.status);
+   const res=await fetch(url,{cache:'no-store'});
+   if(!res.ok)throw new Error('Gold price request failed: '+res.status);
    const d=await res.json();
-   const p=db.goldRatePurity===24?d.price_gram_24k:d.price_gram_22k;
-   if(!p)throw new Error('Gold price missing');
-   db.goldRate=Number(p);db.goldRateDate=today();save();
+   const rate24=Number(d.xau&&d.xau.price);
+   const rate22=rate24*(22/24);
+   if(!(rate24>0)||!(rate22>0))throw new Error('Gold price missing');
+   db.goldRates={22:rate22,24:rate24};
+   db.goldRate=db.goldRatePurity===24?rate24:rate22;
+   db.goldRateDate=today();
+   save();
  }catch(e){
-   alert('Gold rate could not be updated. Check your API key/internet. Your last saved rate is still being used.');
+   console.error('Gold rate update failed:',e);
+   if(rateForPurity(22)>0||rateForPurity(24)>0||db.goldRate){
+     alert('Gold rate could not be updated. Your last saved rate is still being used.');
+     render();
+   }else{
+     alert('Gold rate could not be loaded. Please check your internet connection and try again.');
+     render();
+   }
  }
 }
 function openSettings(){
  document.getElementById('settingsModal').classList.add('show');
- document.getElementById('apiKey').value=db.apiKey||'';
  document.getElementById('purity').value=db.goldRatePurity||22;
 }
 function saveSettings(){
- db.apiKey=document.getElementById('apiKey').value.trim();
  db.goldRatePurity=Number(document.getElementById('purity').value);
  db.goldRateDate=null;save();closeModals();fetchGoldRate(true);
 }
