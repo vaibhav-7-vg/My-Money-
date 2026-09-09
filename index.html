@@ -34,7 +34,7 @@ header{display:flex;justify-content:space-between;align-items:center;margin-bott
 .form{display:grid;gap:12px}.form label{font-size:12px;color:#667085;font-weight:700}.form input,.form select{width:100%;padding:13px;border:1px solid #d0d5dd;border-radius:13px;outline:none;background:#fff}.form input:focus,.form select:focus{border-color:#344054;box-shadow:0 0 0 3px #34405418}.primary{width:100%;padding:14px;border-radius:14px;background:#0b1220;color:#fff;font-weight:800}
 .secondary{width:100%;padding:13px;border-radius:14px;background:#eef2f6;color:#101828;font-weight:700}
 .note{font-size:11px;color:#667085;line-height:1.5;background:#f8fafc;padding:10px;border-radius:12px}
-.row{display:flex;justify-content:space-between;align-items:center;gap:10px}.danger{color:#b42318;background:#fff1f0;padding:10px 12px;border-radius:11px;font-weight:700}
+.row{display:flex;justify-content:space-between;align-items:center;gap:10px}.danger{color:#b42318;background:#fff1f0;padding:10px 12px;border-radius:11px;font-weight:700}.delete-btn{background:#fff1f0;color:#b42318;border-radius:9px;padding:7px 9px;font-size:11px;font-weight:800;margin-left:8px}
 @media(min-width:700px){.cards{grid-template-columns:repeat(4,1fr)}.modal{align-items:center}.sheet{border-radius:24px}}
 </style>
 </head>
@@ -57,7 +57,7 @@ header{display:flex;justify-content:space-between;align-items:center;margin-bott
   <div class="card"><div class="coin">💰</div><div class="label">Other Income</div><div class="value" id="otherValue">₹0</div><div class="hint">Other money added</div></div>
   <div class="card"><div class="coin">➕</div><div class="label">Added Amount</div><div class="value" id="amountValue">₹0</div><div class="hint">Direct amount added</div></div>
   <div class="card"><div class="coin">💸</div><div class="label">Used / Expenses</div><div class="value" id="usedValue">₹0</div><div class="hint">Total money spent</div></div>
-  <div class="card"><div class="coin">🤝</div><div class="label">Money Lent</div><div class="value" id="loanValue">₹0</div><div class="hint">Expected return</div></div>
+  <div class="card"><div class="coin">🤝</div><div class="label">Money Lent</div><div class="value" id="loanLentValue">₹0</div><div class="hint">Amount given</div><div class="value" id="loanExpectedValue" style="font-size:17px;margin-top:6px">₹0</div><div class="hint">Expected to receive</div></div>
 </section>
 
 <section class="actions">
@@ -124,12 +124,14 @@ let db=JSON.parse(localStorage.getItem(KEY)||'null')||{
 };
 db.amount = Number(db.amount||0);
 db.loans = Array.isArray(db.loans) ? db.loans : [];
+db.transactions = Array.isArray(db.transactions) ? db.transactions : [];
+db.transactions.forEach(t=>{ if(!t.id)t.id=String(Date.now())+Math.random().toString(16).slice(2); if(!t.kind){ if(t.title==='Salary Added')t.kind='salary'; else if(t.title==='Other Income Added')t.kind='other'; else if(t.title==='Amount Added')t.kind='amount'; else if(t.title==='Money Used')t.kind='used'; else if(t.title && t.title.startsWith('Money Lent to '))t.kind='loan'; }});
 
 const money=n=>new Intl.NumberFormat('en-IN',{style:'currency',currency:'INR',maximumFractionDigits:2}).format(Number(n)||0);
 const today=()=>new Date().toISOString().slice(0,10);
 function save(){localStorage.setItem(KEY,JSON.stringify(db));render();}
 function totalGoldValue(){return (db.goldGrams||0)*(db.goldRate||0)}
-function totalBalance(){return (db.salary||0)+(db.other||0)+(db.amount||0)+totalGoldValue()-(db.used||0)}
+function totalBalance(){return (db.salary||0)+(db.other||0)+(db.amount||0)+totalGoldValue()-(db.used||0)+outstandingLoanExpected()}
 
 function render(){
  document.getElementById('totalBalance').textContent=money(totalBalance());
@@ -137,7 +139,8 @@ function render(){
  document.getElementById('otherValue').textContent=money(db.other);
  document.getElementById('amountValue').textContent=money(db.amount);
  document.getElementById('usedValue').textContent=money(db.used);
- document.getElementById('loanValue').textContent=money(outstandingLoanExpected());
+ document.getElementById('loanLentValue').textContent=money(outstandingLoanGiven());
+ document.getElementById('loanExpectedValue').textContent=money(outstandingLoanExpected());
  document.getElementById('goldValue').textContent=money(totalGoldValue());
  document.getElementById('goldHint').textContent=`${(db.goldGrams||0).toFixed(3)} g • ${db.goldRate?money(db.goldRate)+'/g':'rate unavailable'}`;
  document.getElementById('goldUpdated').textContent=db.goldRate?`Gold ${db.goldRatePurity}K: ${money(db.goldRate)}/g • Updated ${db.goldRateDate}`:'Gold rate: add API key in ⚙️ Settings';
@@ -150,9 +153,16 @@ function renderHistory(id,limit){
  const box=document.getElementById(id); let arr=[...(db.transactions||[])].reverse();
  if(limit)arr=arr.slice(0,limit);
  if(!arr.length){box.innerHTML='<div class="empty">No transactions yet.</div>';return}
- box.innerHTML=arr.map(t=>`<div class="history-item">
- <div><div class="history-title">${escapeHtml(t.title)}</div><div class="history-meta">${t.date}${t.note?' • '+escapeHtml(t.note):''}</div></div>
- <div class="${t.type==='use'?'neg':'pos'}">${t.type==='use'?'−':'+'}${money(t.amount)}</div></div>`).join('');
+ box.innerHTML=arr.map(t=>{
+   const safeId=String(t.id||'').replace(/[^a-zA-Z0-9_-]/g,'');
+   const canDelete=!!safeId && t.kind!=='gold';
+   return `<div class="history-item">
+   <div><div class="history-title">${escapeHtml(t.title)}</div><div class="history-meta">${t.date}${t.note?' • '+escapeHtml(t.note):''}</div></div>
+   <div style="text-align:right"><span class="${t.type==='use'?'neg':'pos'}">${t.type==='use'?'−':'+'}${money(t.amount)}</span>${canDelete?`<button class="delete-btn" onclick="deleteTransaction('${safeId}')">Delete</button>`:''}</div></div>`;
+ }).join('');
+}
+function outstandingLoanGiven(){
+ return (db.loans||[]).filter(l=>l.status!=='returned').reduce((sum,l)=>sum+Number(l.givenAmount||0),0);
 }
 function outstandingLoanExpected(){
  return (db.loans||[]).filter(l=>l.status!=='returned').reduce((sum,l)=>sum+Number(l.returnAmount||0),0);
@@ -165,7 +175,7 @@ function renderLoanDetails(){
    const returned=l.status==='returned';
    return `<div class="history-item">
    <div><div class="history-title">🤝 ${escapeHtml(l.person)}</div>
-   <div class="history-meta">Given: ${money(l.givenAmount)} • ${l.givenDate}<br>Return: ${money(l.returnAmount)} • Due: ${l.returnDate}${l.note?' • '+escapeHtml(l.note):''}</div></div>
+   <div class="history-meta"><b>Lent:</b> ${money(l.givenAmount)} • ${l.givenDate}<br><b>Expected:</b> ${money(l.returnAmount)} • Due: ${l.returnDate}${l.note?' • '+escapeHtml(l.note):''}</div></div>
    <div style="text-align:right">${returned?'<span class="pos">Returned</span>':'<button class="secondary" style="width:auto;padding:8px 10px" onclick="markLoanReturned(\''+l.id+'\')">Mark Returned</button>'}</div>
    </div>`;
  }).join('');
@@ -196,7 +206,7 @@ function showIncomeForm(kind){
 function saveIncome(kind){
  const amount=Number(document.getElementById('amount').value),note=document.getElementById('note').value.trim();
  if(!(amount>0))return alert('Enter a valid amount.');
- db[kind]+=amount;db.transactions.push({type:'add',title:kind==='salary'?'Salary Added':'Other Income Added',amount,date:today(),note});
+ db[kind]+=amount;db.transactions.push({id:String(Date.now())+Math.random().toString(16).slice(2),kind,type:'add',title:kind==='salary'?'Salary Added':'Other Income Added',amount,date:today(),note});
  save();closeModals();
 }
 function showDirectAmountForm(){
@@ -210,7 +220,7 @@ function saveDirectAmount(){
  const amount=Number(document.getElementById('amount').value),note=document.getElementById('note').value.trim();
  if(!(amount>0))return alert('Enter a valid amount.');
  db.amount+=amount;
- db.transactions.push({type:'add',title:'Amount Added',amount,date:today(),note:note||'Direct amount'});
+ db.transactions.push({id:String(Date.now())+Math.random().toString(16).slice(2),kind:'amount',type:'add',title:'Amount Added',amount,date:today(),note:note||'Direct amount'});
  save();closeModals();
 }
 function showLoanForm(){
@@ -233,10 +243,9 @@ function saveLoan(){
  const note=document.getElementById('loanNote').value.trim();
  if(!person||!(given>0)||!(ret>0)||!returnDate)return alert('Please fill person name, amounts and return date.');
  if(given>totalBalance())return alert('The amount given is greater than your current total balance.');
- const loan={id:String(Date.now()),person,givenAmount:given,returnAmount:ret,givenDate,returnDate,note,status:'pending'};
+ const loan={id:String(Date.now())+Math.random().toString(16).slice(2),person,givenAmount:given,returnAmount:ret,givenDate,returnDate,note,status:'pending'};
  db.loans.push(loan);
- db.used+=given;
- db.transactions.push({type:'use',title:'Money Lent to '+person,amount:given,date:givenDate,note:'Expected return '+money(ret)+' on '+returnDate});
+ db.transactions.push({id:String(Date.now())+Math.random().toString(16).slice(2),kind:'loan',loanId:loan.id,type:'loan',title:'Money Lent to '+person,amount:given,date:givenDate,note:'Expected return '+money(ret)+' on '+returnDate});
  save();closeModals();
 }
 function markLoanReturned(id){
@@ -246,9 +255,8 @@ function markLoanReturned(id){
  const returned=Number(actual);
  if(!(returned>=0))return;
  loan.status='returned';loan.actualReturn=returned;loan.returnedDate=today();
- db.used=Math.max(0,(db.used||0)-Number(loan.givenAmount||0));
  db.amount=(db.amount||0)+returned;
- db.transactions.push({type:'add',title:'Loan Returned by '+loan.person,amount:returned,date:today(),note:'Loan given '+money(loan.givenAmount)});
+ db.transactions.push({id:String(Date.now())+Math.random().toString(16).slice(2),kind:'loanReturn',loanId:loan.id,type:'add',title:'Loan Returned by '+loan.person,amount:returned,date:today(),note:'Loan given '+money(loan.givenAmount)});
  save();
 }
 function showUseForm(){
@@ -262,8 +270,31 @@ function saveUse(){
  const amount=Number(document.getElementById('amount').value),note=document.getElementById('note').value.trim();
  if(!(amount>0))return alert('Enter a valid amount.');
  if(amount>totalBalance())return alert('This expense is greater than your current total balance.');
- db.used+=amount;db.transactions.push({type:'use',title:'Money Used',amount,date:today(),note:note||'Expense'});
+ db.used+=amount;db.transactions.push({id:String(Date.now())+Math.random().toString(16).slice(2),kind:'used',type:'use',title:'Money Used',amount,date:today(),note:note||'Expense'});
  save();closeModals();
+}
+function deleteTransaction(id){
+ const t=(db.transactions||[]).find(x=>String(x.id)===String(id));
+ if(!t)return;
+ if(!confirm('Delete this transaction? The amount will be removed from the related total.'))return;
+ if(t.kind==='salary') db.salary=Math.max(0,(db.salary||0)-Number(t.amount||0));
+ else if(t.kind==='other') db.other=Math.max(0,(db.other||0)-Number(t.amount||0));
+ else if(t.kind==='amount') db.amount=Math.max(0,(db.amount||0)-Number(t.amount||0));
+ else if(t.kind==='used') db.used=Math.max(0,(db.used||0)-Number(t.amount||0));
+ else if(t.kind==='loan'){
+   db.loans=(db.loans||[]).filter(l=>String(l.id)!==String(t.loanId));
+ }
+ else if(t.kind==='loanReturn'){
+  db.amount=Math.max(0,(db.amount||0)-Number(t.amount||0));
+   const loan=(db.loans||[]).find(l=>String(l.id)===String(t.loanId));
+   if(loan){loan.status='pending';delete loan.actualReturn;delete loan.returnedDate;}
+ }
+ else if(t.kind==='gold'){
+   alert('Gold purchases cannot be deleted from History yet. Use the Gold Portfolio records so your grams and investment stay correct.');
+   return;
+ }
+ db.transactions=db.transactions.filter(x=>String(x.id)!==String(id));
+ save();
 }
 function showGoldForm(){
  closeModals();document.getElementById('formModal').classList.add('show');
@@ -278,8 +309,10 @@ function showGoldForm(){
 function saveGold(){
  const grams=Number(document.getElementById('grams').value),paid=Number(document.getElementById('paid').value),purity=Number(document.getElementById('goldPurity').value),note=document.getElementById('goldNote').value.trim();
  if(!(grams>0)||!(paid>=0))return alert('Enter valid gold quantity and amount.');
- db.goldGrams+=grams;db.goldInvested+=paid;db.goldPurchases.push({grams,paid,purity,date:today(),note});
- db.transactions.push({type:'gold',title:`Gold Purchased • ${grams}g`,amount:paid,date:today(),note:note||`${purity}K gold`});
+ db.goldGrams+=grams;db.goldInvested+=paid;
+ const purchase={id:String(Date.now())+Math.random().toString(16).slice(2),grams,paid,purity,date:today(),note};
+ db.goldPurchases.push(purchase);
+ db.transactions.push({id:String(Date.now())+Math.random().toString(16).slice(2),kind:'gold',goldPurchaseId:purchase.id,type:'gold',title:`Gold Purchased • ${grams}g`,amount:paid,date:today(),note:note||`${purity}K gold`});
  db.goldRatePurity=purity;save();closeModals();
  if(db.apiKey)fetchGoldRate(true);
 }
@@ -315,7 +348,7 @@ function exportData(){
 }
 function importData(e){
  const file=e.target.files[0];if(!file)return;
- const r=new FileReader();r.onload=()=>{try{db=JSON.parse(r.result);db.amount=Number(db.amount||0);db.loans=Array.isArray(db.loans)?db.loans:[];save();alert('Backup imported successfully.')}catch{alert('Invalid backup file.')}};r.readAsText(file);
+ const r=new FileReader();r.onload=()=>{try{db=JSON.parse(r.result);db.amount=Number(db.amount||0);db.loans=Array.isArray(db.loans)?db.loans:[];db.transactions=Array.isArray(db.transactions)?db.transactions:[];db.transactions=db.transactions.map(t=>{if(!t.id)t.id=String(Date.now())+Math.random().toString(16).slice(2);if(!t.kind){if(t.title==='Salary Added')t.kind='salary';else if(t.title==='Other Income Added')t.kind='other';else if(t.title==='Amount Added')t.kind='amount';else if(t.title==='Money Used')t.kind='used';}return t});save();alert('Backup imported successfully.')}catch{alert('Invalid backup file.')}};r.readAsText(file);
 }
 function clearAllData(){
  if(confirm('Delete ALL finance, gold and transaction data?')){localStorage.removeItem(KEY);location.reload()}
